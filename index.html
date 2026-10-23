@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kørselsregnskab</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffb300">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kørsel">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#fff;--ink:#0a0a0a;--acc:#ffb300;--grey:#ececec;--mid:#6b6b6b;--line:#1a1a1a;--ok:#0b6b2b;--bad:#b00020}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:18px}
+.content{flex:1;overflow-y:auto;padding:14px 16px 24px}
+.panel{display:none}.panel.on{display:block}
+h2{font-size:22px;margin:4px 0 12px}
+h3{font-size:18px;margin:20px 0 8px}
+label{display:block;font-weight:700;margin:14px 0 4px}
+input,select{width:100%;font-size:22px;padding:12px;border:2px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input:focus{outline:3px solid var(--acc)}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.veh{display:flex;gap:8px;margin-bottom:6px}
+.veh button{flex:1}
+#vehRow{margin-bottom:10px}
+#vehSel{font-weight:700;background:var(--grey)}
+.pbox{display:flex;align-items:center;border:2px solid var(--line);border-radius:10px;padding:0 12px;background:#fff}
+.pbox:focus-within{outline:3px solid var(--acc)}
+.pbox input{border:0;outline:0!important;padding:12px 4px;flex:1;min-width:0}
+.pbox .suf{font-size:18px;font-weight:700;color:var(--mid);white-space:nowrap}
+.sep{border:0;border-top:3px solid var(--ink);margin:26px 0 14px}
+button{font-size:20px;font-weight:700;padding:14px;border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+button.pri{background:var(--acc);width:100%;margin-top:18px;font-size:22px}
+button.sel{background:var(--ink);color:#fff}
+button:disabled{opacity:.5}
+.kmbox{display:flex;align-items:baseline;border:2px solid var(--line);border-radius:10px;padding:0 12px;background:#fff}
+.kmbox:focus-within{outline:3px solid var(--acc)}
+.kmbox .pre{font-size:34px;font-weight:700;color:#b5b5b5;font-variant-numeric:tabular-nums}
+.kmbox input{border:0;outline:0!important;font-size:34px;font-weight:700;padding:10px 4px;flex:1;min-width:0;letter-spacing:2px}
+.hint{color:var(--mid);margin-top:4px;min-height:22px;font-size:16px}
+.box{border:2px solid var(--line);border-radius:12px;padding:12px;margin-top:16px;background:var(--grey)}
+.box.big{font-size:22px}
+.box .num{font-size:34px;font-weight:800}
+.err{display:none;border:2px solid var(--bad);color:var(--bad);border-radius:10px;padding:10px;margin-bottom:10px;font-weight:700}
+.warn{color:var(--bad);font-weight:700}
+.cards{display:flex;gap:10px}.card{flex:1;border:2px solid var(--line);border-radius:12px;padding:10px;background:var(--grey)}
+.card .t{font-size:14px;color:var(--mid)}.card .v{font-size:28px;font-weight:800}
+.chk{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chk label{display:flex;align-items:center;gap:6px;margin:0;border:2px solid var(--line);border-radius:10px;padding:8px 10px;font-size:16px}
+.chk input{width:22px;height:22px;padding:0}
+.mc{display:flex;border:2px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.mc .ax{flex:none}
+.mc .sc{flex:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mc svg{display:block}
+.chk .sw{display:inline-block;width:14px;height:14px;border-radius:3px}
+.hint2{color:var(--mid);font-size:14px;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{border-bottom:1px solid #ccc;padding:6px 4px;text-align:left}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{flex:1 1 40%;font-size:17px;padding:10px}
+.bottom-nav{display:flex;border-top:3px solid var(--ink);background:#fff;padding-bottom:env(safe-area-inset-bottom)}
+.bottom-nav button{flex:1;border:0;border-radius:0;background:#fff;padding:8px 2px 6px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#555}
+.bottom-nav button.on{background:var(--acc);color:var(--ink)}
+.bottom-nav svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hide{display:none!important}
+#setup{position:fixed;inset:0;background:#fff;z-index:50;overflow-y:auto;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
+#setup h1{font-size:26px;margin:8px 0 6px}
+#setup input{font-size:18px}
+</style>
+</head>
+<body>
+<div id="setup" class="hide">
+  <h1>Kørselsregnskab</h1>
+  <div class="hint" id="setupMsg">Første gang skal appen kende serverens adresse og din nøgle. Du skriver dem kun én gang.</div>
+  <label for="setupUrl">Serverens adresse (slutter på /exec)</label>
+  <input id="setupUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://script.google.com/macros/s/…/exec">
+  <label for="setupKey">Nøgle</label>
+  <input id="setupKey" type="password" autocomplete="off" autocapitalize="off" placeholder="Nøglen fra Apps Script">
+  <button class="pri" id="setupBtn">Gem og start</button>
+</div>
+<div class="content">
+  <div id="err" class="err"></div>
+  <div id="vehRow" class="hide"><select id="vehSel" aria-label="Køretøj"></select></div>
+
+  <!-- TANKNING -->
+  <div id="panelTankning" class="panel on">
+    <h2>Tankning</h2>
+    <label for="dato">Dato</label>
+    <input type="date" id="dato">
+    <label>Km-stand (de tre sidste cifre)</label>
+    <div class="kmbox"><span class="pre" id="preT">–</span><input id="kmT" inputmode="numeric" maxlength="3" placeholder="000" autocomplete="off"></div>
+    <div class="hint" id="hintT"></div>
+    <div class="row">
+      <div><label for="liter">Liter</label><input id="liter" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+      <div><label for="pris">Literpris</label><input id="pris" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+    </div>
+    <label for="sted">Sted</label>
+    <input id="sted" list="stedList" placeholder="fx Circle K Odder" autocomplete="off">
+    <datalist id="stedList"></datalist>
+    <button class="pri" id="gemBtn">Gem tankning</button>
+    <div class="box hide" id="resT"></div>
+  </div>
+
+  <!-- LADNING (elbil) -->
+  <div id="panelLadning" class="panel">
+    <h2>Ladning</h2>
+    <label for="ldato">Dato</label>
+    <input type="date" id="ldato">
+    <label>Ladetype</label>
+    <div class="veh" id="ltypeRow"></div>
+    <label for="lkm">Km-stand (valgfri)</label>
+    <div class="pbox"><input id="lkm" inputmode="numeric" placeholder="fx 25400" autocomplete="off"><span class="suf">km</span></div>
+    <div class="hint" id="hintL"></div>
+    <div class="row">
+      <div><label for="lkwh">Ladet</label><div class="pbox"><input id="lkwh" inputmode="decimal" placeholder="0,0" autocomplete="off"><span class="suf">kWh</span></div></div>
+      <div><label for="lpris">Pris pr. kWh</label><div class="pbox"><input id="lpris" inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="suf">kr</span></div></div>
+    </div>
+    <label for="lsamlet">Eller samlet pris</label>
+    <div class="pbox"><input id="lsamlet" inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="suf">kr</span></div>
+    <div class="hint" id="hintLpris"></div>
+    <div class="row">
+      <div><label for="lfoer">Batteri før</label><div class="pbox"><input id="lfoer" inputmode="numeric" placeholder="0" autocomplete="off"><span class="suf">%</span></div></div>
+      <div><label for="lefter">Batteri efter</label><div class="pbox"><input id="lefter" inputmode="numeric" placeholder="0" autocomplete="off"><span class="suf">%</span></div></div>
+    </div>
+    <label for="lsted">Sted</label>
+    <input id="lsted" list="stedList" placeholder="fx Ionity Hammel" autocomplete="off">
+    <button class="pri" id="lgemBtn">Gem ladning</button>
+    <div class="box hide" id="resL"></div>
+    <h3>Seneste ladninger</h3>
+    <div id="lListe"><div class="hint">Henter…</div></div>
+  </div>
+
+  <!-- RÆKKEVIDDE -->
+  <div id="panelRaekkevidde" class="panel">
+    <h2>Rækkevidde</h2>
+    <label>Nuværende km-stand (de tre sidste cifre)</label>
+    <div class="kmbox"><span class="pre" id="preR">–</span><input id="kmR" inputmode="numeric" maxlength="3" placeholder="000" autocomplete="off"></div>
+    <div class="hint" id="hintR"></div>
+    <button class="pri" id="raekBtn">Beregn</button>
+    <div class="box big hide" id="resR"></div>
+  </div>
+
+  <!-- STATISTIK -->
+  <div id="panelStatistik" class="panel">
+    <h2>Statistik</h2>
+    <div id="statBody"><div class="hint">Åbner…</div></div>
+  </div>
+
+  <!-- INDSTILLINGER -->
+  <div id="panelIndstillinger" class="panel">
+    <h2>Køretøjer</h2>
+    <div id="vehSetBody"></div>
+    <hr class="sep">
+    <h2>Dæk</h2>
+    <div id="daekBody"><div class="hint">Åbner…</div></div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button data-tab="Tankning" class="on">
+    <svg id="icoTank" viewBox="0 0 24 24"><path d="M4 20V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v14"/><path d="M3 20h12"/><path d="M6 8h6v4H6z"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg>
+    <svg id="icoLad" class="hide" viewBox="0 0 24 24"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg>
+    <span id="navTankLabel">Tankning</span></button>
+  <button data-tab="Raekkevidde"><svg viewBox="0 0 24 24"><path d="M3 17a9 9 0 1 1 18 0"/><path d="M12 17l4-6"/><circle cx="12" cy="17" r="1"/></svg>Rækkevidde</button>
+  <button data-tab="Statistik"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M6 15l4-5 3 3 5-7"/></svg>Statistik</button>
+  <button data-tab="Indstillinger"><svg viewBox="0 0 24 24"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2"/><circle cx="8" cy="16" r="2"/></svg>Indstillinger</button>
+</nav>
+
+<script>
+var state = { veh: null, vehicles: [], allVehicles: [], last: null, lastToken: 0, tab: 'Tankning', stat: null, lad: null,
+  checked: { forbrug: true, krKm: false, temperatur: false, literPris: false, kwh: true, kr: false, prisKwh: false } };
+var nf1 = new Intl.NumberFormat('da-DK', { maximumFractionDigits: 1 });
+var nf2 = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+var nf0 = new Intl.NumberFormat('da-DK', { maximumFractionDigits: 0 });
+
+function el(id) { return document.getElementById(id); }
+function h(tag, props, kids) {
+  var e = document.createElement(tag);
+  if (props) Object.keys(props).forEach(function (k) {
+    if (k === 'text') e.textContent = props[k];
+    else if (k === 'class') e.className = props[k];
+    else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), props[k]);
+    else e.setAttribute(k, props[k]);
+  });
+  (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return e;
+}
+function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); }
+function showError(m) { var b = el('err'); b.textContent = (m && m.message) ? m.message : String(m); b.style.display = 'block'; window.scrollTo(0, 0); el('err').scrollIntoView(); }
+function clearError() { el('err').style.display = 'none'; }
+// ---------- forbindelse til Apps Script (GET + nøgle) ----------
+function getCfg() {
+  try {
+    var u = localStorage.getItem('kr_api_url'), k = localStorage.getItem('kr_api_key');
+    return (u && k) ? { url: u, key: k } : null;
+  } catch (e) { return null; }
+}
+function gemCfg(u, k) {
+  try { localStorage.setItem('kr_api_url', u); if (k !== null) localStorage.setItem('kr_api_key', k); return true; } catch (e) { return false; }
+}
+function sletNoegle() { try { localStorage.removeItem('kr_api_key'); } catch (e) {} }
+
+// Opsætningsskærm. onDone kaldes, når adresse og nøgle er gemt.
+function showSetup(besked, onDone) {
+  var box = el('setup');
+  var cfg = getCfg();
+  var u = ''; try { u = localStorage.getItem('kr_api_url') || ''; } catch (e) {}
+  el('setupUrl').value = u;
+  el('setupKey').value = '';
+  el('setupMsg').textContent = besked || 'Første gang skal appen kende serverens adresse og din nøgle. Du skriver dem kun én gang.';
+  box.classList.remove('hide');
+  el('setupBtn').onclick = function () {
+    var nu = el('setupUrl').value.trim(), nk = el('setupKey').value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(nu)) { el('setupMsg').textContent = 'Adressen skal starte med https://script.google.com/ og slutte på /exec.'; return; }
+    if (!nk) { el('setupMsg').textContent = 'Skriv nøglen.'; return; }
+    if (!gemCfg(nu, nk)) { el('setupMsg').textContent = 'Telefonen vil ikke gemme oplysningerne (privat tilstand?).'; return; }
+    box.classList.add('hide');
+    if (onDone) onDone();
+  };
+}
+
+function call(fn, args, ok, fail) {
+  fail = fail || showError;
+  var cfg = getCfg();
+  if (!cfg) { showSetup(null, function () { location.reload(); }); return; }
+  var url = cfg.url + '?api=1&key=' + encodeURIComponent(cfg.key) + '&fn=' + encodeURIComponent(fn) +
+    '&args=' + encodeURIComponent(JSON.stringify(args || []));
+  var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var t = setTimeout(function () { if (ctl) ctl.abort(); }, 60000);
+  fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { return r.json(); }).then(function (j) {
+    clearTimeout(t);
+    if (j && j.ok) { ok(j.data); return; }
+    if (j && j.auth) {
+      sletNoegle();
+      showSetup((j.error || 'Forkert nøgle.') + ' Skriv nøglen igen.', function () { location.reload(); });
+      return;
+    }
+    fail(new Error((j && j.error) || 'Ukendt fejl fra serveren.'));
+  }).catch(function () {
+    clearTimeout(t);
+    fail(new Error('Ingen forbindelse til serveren. Tjek nettet, eller om adressen er rigtig.'));
+  });
+}
+function localToday() {
+  var d = new Date(), m = d.getMonth() + 1, dd = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd;
+}
+function num(s) { var t = String(s).replace(',', '.').trim(); return t === '' ? null : parseFloat(t); }
+function dkDato(iso) { if (!iso) return ''; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+
+// ---------- start ----------
+function init() {
+  el('dato').value = localToday();
+  el('ldato').value = localToday();
+  document.querySelectorAll('.bottom-nav button').forEach(function (b) {
+    b.addEventListener('click', function () { switchTab(b.getAttribute('data-tab')); });
+  });
+  el('gemBtn').addEventListener('click', gemTankning);
+  el('raekBtn').addEventListener('click', beregnRaekkevidde);
+  el('lgemBtn').addEventListener('click', gemLadning);
+  ['kmT', 'kmR'].forEach(function (id) {
+    el(id).addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 3); updKm(); });
+  });
+  ['lkm', 'lkwh', 'lpris', 'lsamlet'].forEach(function (id) { el(id).addEventListener('input', updLadeHint); });
+  el('vehSel').addEventListener('change', function () { setVehicle(this.value); });
+  renderLadeType();
+  call('getVehicles', [], function (v) {
+    state.allVehicles = v;
+    state.vehicles = v.filter(function (x) { return x.valgt; });
+    if (!state.vehicles.length) { showError('Ingen køretøjer er valgt.'); return; }
+    var gemt = hentVeh();
+    var kendt = state.vehicles.filter(function (x) { return x.navn === gemt; })[0];
+    state.veh = (kendt || state.vehicles[0]).navn;
+    renderVehicles();
+    applyVehicleUi();
+    loadVehicleData();
+    loadSteder();
+  });
+}
+
+function lagreVeh(n) { try { localStorage.setItem('kr_veh', n); } catch (e) {} }
+function hentVeh() { try { return localStorage.getItem('kr_veh'); } catch (e) { return null; } }
+
+function vehObj() { return state.allVehicles.filter(function (v) { return v.navn === state.veh; })[0]; }
+function erEl() { var v = vehObj(); return !!(v && v.type === 'el'); }
+
+// Menuen øverst: vises kun hvis der er mindst to valgte køretøjer
+function renderVehicles() {
+  var row = el('vehRow'), sel = el('vehSel'); clear(sel);
+  if (state.vehicles.length < 2) { row.classList.add('hide'); return; }
+  row.classList.remove('hide');
+  state.vehicles.forEach(function (v) {
+    var o = h('option', { value: v.navn, text: v.navn });
+    if (v.navn === state.veh) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.value = state.veh;
+}
+
+function setVehicle(navn) {
+  if (state.veh === navn) return;
+  state.veh = navn; lagreVeh(navn);
+  clearError();
+  el('resT').classList.add('hide'); el('resR').classList.add('hide'); el('resL').classList.add('hide');
+  state.last = null; state.lad = null; state.stat = null; state.daek = null;
+  updKm();
+  renderVehicles();
+  applyVehicleUi();
+  loadVehicleData();
+  reloadTab();
+}
+
+// Tilpasser menuen nederst og de faner, der vises, til køretøjets type
+function applyVehicleUi() {
+  var e = erEl();
+  el('navTankLabel').textContent = e ? 'Ladning' : 'Tankning';
+  el('icoTank').classList.toggle('hide', e);
+  el('icoLad').classList.toggle('hide', !e);
+  document.querySelector('.bottom-nav [data-tab=Raekkevidde]').classList.toggle('hide', e);
+  if (e && state.tab === 'Raekkevidde') state.tab = 'Tankning';
+  showPanel();
+}
+function panelId(tab) {
+  if (tab === 'Tankning') return erEl() ? 'panelLadning' : 'panelTankning';
+  return 'panel' + tab;
+}
+function showPanel() {
+  var vis = panelId(state.tab);
+  document.querySelectorAll('.bottom-nav button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === state.tab); });
+  document.querySelectorAll('.panel').forEach(function (p) { p.classList.toggle('on', p.id === vis); });
+}
+function loadVehicleData() {
+  if (erEl()) loadLadning(); else loadLastEntry(false);
+}
+
+function loadSteder() {
+  call('getSteder', [], function (list) {
+    var dl = el('stedList'); clear(dl);
+    list.forEach(function (s) { dl.appendChild(h('option', { value: s })); });
+  }, function () {});
+}
+
+function loadLastEntry(keep) {
+  var tok = ++state.lastToken;
+  if (!keep) { state.last = null; updKm(); }
+  call('getLastEntry', [state.veh], function (r) {
+    if (tok !== state.lastToken) return;
+    state.last = r.found ? r : null;
+    updKm();
+  }, function (e) { if (tok === state.lastToken) showError(e); });
+}
+
+function switchTab(t) {
+  state.tab = t;
+  showPanel();
+  clearError(); reloadTab();
+}
+function reloadTab() {
+  if (state.tab === 'Statistik') loadStatistik();
+  if (state.tab === 'Indstillinger') { renderVehSettings(); loadDaek(); }
+}
+
+// ---------- indstillinger: hvilke køretøjer kan vælges ----------
+function renderVehSettings() {
+  var body = el('vehSetBody'); clear(body);
+  body.appendChild(h('div', { class: 'hint', text: 'Sæt kryds ved de køretøjer, der skal kunne vælges i menuen øverst.' }));
+  var chk = h('div', { class: 'chk' });
+  var bokse = [];
+  state.allVehicles.forEach(function (v) {
+    var cb = h('input', { type: 'checkbox' });
+    cb.checked = !!v.valgt;
+    bokse.push({ navn: v.navn, cb: cb });
+    cb.addEventListener('change', function () {
+      var navne = bokse.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.navn; });
+      if (!navne.length) { cb.checked = true; showError('Mindst ét køretøj skal være valgt.'); return; }
+      clearError();
+      call('setValgteKoeretoejer', [navne], function (alle) {
+        state.allVehicles = alle;
+        state.vehicles = alle.filter(function (x) { return x.valgt; });
+        if (!state.vehicles.some(function (x) { return x.navn === state.veh; })) {
+          var ny = state.vehicles[0].navn;
+          state.veh = null; renderVehicles(); setVehicle(ny);
+        } else { renderVehicles(); }
+        renderVehSettings();
+      }, function (e) { cb.checked = !cb.checked; showError(e); });
+    });
+    chk.appendChild(h('label', null, [cb, v.navn]));
+  });
+  body.appendChild(chk);
+  body.appendChild(h('hr', { class: 'sep' }));
+  body.appendChild(h('h2', { text: 'Forbindelse' }));
+  body.appendChild(h('div', { class: 'hint', text: 'Adresse og nøgle ligger kun på denne telefon.' }));
+  body.appendChild(h('button', { text: 'Skift adresse eller nøgle', style: 'width:100%;margin-top:10px', onclick: function () {
+    showSetup('Skriv den nye adresse og nøgle.', function () { location.reload(); });
+  } }));
+}
+
+// ---------- km-felt med rollover ----------
+function fuldKm(txt) {
+  if (!state.last || txt === '') return null;
+  var full = state.last.prefix + parseInt(txt, 10);
+  while (full < state.last.km) full += 1000;
+  return full;
+}
+function updKm() {
+  [['kmT', 'preT', 'hintT'], ['kmR', 'preR', 'hintR']].forEach(function (ids) {
+    var txt = el(ids[0]).value, pre = el(ids[1]), hint = el(ids[2]);
+    if (!state.last) { pre.textContent = '–'; hint.textContent = ''; return; }
+    var full = fuldKm(txt);
+    var p = full === null ? state.last.prefix : Math.floor(full / 1000) * 1000;
+    pre.textContent = String(p / 1000);
+    if (full === null) hint.textContent = 'Sidst: ' + nf0.format(state.last.km) + ' km (' + dkDato(state.last.dato) + ')';
+    else hint.textContent = nf0.format(full) + ' km · ' + nf0.format(full - state.last.km) + ' km siden sidst';
+  });
+}
+
+// ---------- tankning ----------
+var HJEM = { lat: 55.74, lng: 9.72 };   // Daugård - temperaturen hentes altid herfra
+
+function position() {
+  return new Promise(function (resolve) {
+    if (!navigator.geolocation) { resolve(null); return; }
+    var done = false;
+    var t = setTimeout(function () { if (!done) { done = true; resolve(null); } }, 7000);
+    navigator.geolocation.getCurrentPosition(function (p) {
+      if (done) return; done = true; clearTimeout(t); resolve({ lat: p.coords.latitude, lng: p.coords.longitude });
+    }, function () {
+      if (done) return; done = true; clearTimeout(t); resolve(null);
+    }, { enableHighAccuracy: false, timeout: 6000, maximumAge: 0 });
+  });
+}
+
+function addDays(iso, n) {
+  var p = iso.split('-');
+  return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + n, 12)).toISOString().slice(0, 10);
+}
+function fetchJson(url) {
+  return new Promise(function (resolve) {
+    var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); resolve(null); }, 7000);
+    fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { clearTimeout(t); resolve(j); })
+      .catch(function () { clearTimeout(t); resolve(null); });
+  });
+}
+// Gennemsnit af døgnmiddel fra og med fra til og med til. Returnerer tal eller null.
+function hentTemperatur(fra, til) {
+  var q = '&daily=temperature_2m_mean&timezone=Europe%2FBerlin';
+  var base = '?latitude=' + HJEM.lat + '&longitude=' + HJEM.lng;
+  var idag = localToday();
+  var arkivSlut = addDays(idag, -2) < til ? addDays(idag, -2) : til;
+  var fStart = addDays(idag, -85) > fra ? addDays(idag, -85) : fra;
+  var jobs = [];
+  jobs.push(fra <= arkivSlut ? fetchJson('https://archive-api.open-meteo.com/v1/archive' + base + '&start_date=' + fra + '&end_date=' + arkivSlut + q) : Promise.resolve(null));
+  jobs.push(fStart <= til ? fetchJson('https://api.open-meteo.com/v1/forecast' + base + '&start_date=' + fStart + '&end_date=' + til + q) : Promise.resolve(null));
+  return Promise.all(jobs).then(function (res) {
+    var kort = {};
+    res.forEach(function (j) {
+      if (j && j.daily && j.daily.time && j.daily.temperature_2m_mean) {
+        j.daily.time.forEach(function (d, i) {
+          var v = j.daily.temperature_2m_mean[i];
+          if (typeof v === 'number' && !(d in kort)) kort[d] = v;
+        });
+      }
+    });
+    var sum = 0, n = 0;
+    for (var d = fra; d <= til; d = addDays(d, 1)) { if (d in kort) { sum += kort[d]; n++; } }
+    return n ? Math.round(sum / n * 10) / 10 : null;
+  }).catch(function () { return null; });
+}
+
+function gemTankning() {
+  clearError();
+  var full = fuldKm(el('kmT').value);
+  if (full === null) { showError(state.last ? 'Skriv de tre sidste cifre af km-standen.' : 'Sidste km-stand er ikke hentet endnu.'); return; }
+  if (full === state.last.km && !confirm('Samme km-stand som sidst (' + nf0.format(full) + '). Gem alligevel?')) return;
+  if (full - state.last.km > 1500 && !confirm(nf0.format(full - state.last.km) + ' km siden sidst. Er det rigtigt?')) return;
+  var liter = num(el('liter').value), pris = num(el('pris').value);
+  if ((liter !== null && !isFinite(liter)) || (pris !== null && !isFinite(pris))) { showError('Liter eller literpris er ikke et tal.'); return; }
+  var dato = el('dato').value || localToday(), sted = el('sted').value.trim();
+  var fra = (state.last && state.last.dato && state.last.dato <= dato) ? state.last.dato : dato;
+  var btn = el('gemBtn'), veh = state.veh;
+  var harTemp = !!(vehObj() && vehObj().type === 'bil');
+  btn.disabled = true; btn.textContent = 'Henter position og temperatur…';
+  Promise.all([position(), harTemp ? hentTemperatur(fra, dato) : Promise.resolve(null)]).then(function (res) {
+    var pos = res[0], temp = res[1];
+    btn.textContent = 'Gemmer…';
+    call('saveTankning', [veh, dato, full, liter, pris, pos ? pos.lat : null, pos ? pos.lng : null, sted, temp], function (r) {
+      btn.disabled = false; btn.textContent = 'Gem tankning';
+      var box = el('resT'); clear(box); box.classList.remove('hide');
+      box.appendChild(h('div', { class: 'num', text: 'Gemt ✓' }));
+      box.appendChild(h('div', { text: nf0.format(r.km) + ' km' + (r.kmKort != null ? ' · ' + nf0.format(r.kmKort) + ' km siden sidst' : '') }));
+      if (r.adresse) box.appendChild(h('div', { text: '📍 ' + r.adresse }));
+      else if (!pos) box.appendChild(h('div', { class: 'hint', text: 'Ingen GPS-position (ikke gemt).' }));
+      if (r.temperatur != null) box.appendChild(h('div', { text: '🌡 ' + nf1.format(r.temperatur) + ' °C (gns. siden sidst)' }));
+      else if (harTemp) box.appendChild(h('div', { class: 'hint', text: 'Temperatur kunne ikke hentes (ikke gemt).' }));
+      (r.advarsler || []).forEach(function (w) { box.appendChild(h('div', { class: 'warn', text: w })); });
+      el('kmT').value = ''; el('liter').value = ''; el('pris').value = ''; el('sted').value = '';
+      loadLastEntry(false); loadSteder();
+    }, function (e) { btn.disabled = false; btn.textContent = 'Gem tankning'; showError(e); });
+  });
+}
+
+// ---------- ladning (elbil) ----------
+var ladeUi = { typ: 'AC' };
+
+function renderLadeType() {
+  var row = el('ltypeRow'); clear(row);
+  ['Hjem', 'AC', 'DC'].forEach(function (t) {
+    row.appendChild(h('button', { text: t, class: t === ladeUi.typ ? 'sel' : '', onclick: function () {
+      ladeUi.typ = t; renderLadeType(); updLadeHint();
+    } }));
+  });
+}
+
+function loadLadning() {
+  var veh = state.veh;
+  call('getLadninger', [veh], function (r) {
+    if (veh !== state.veh) return;
+    state.lad = r; renderLadeListe(); updLadeHint();
+  }, function (e) { if (veh === state.veh) showError(e); });
+}
+
+function updLadeHint() {
+  var lad = state.lad || {};
+  var km = num(el('lkm').value), kwh = num(el('lkwh').value), pris = num(el('lpris').value), sam = num(el('lsamlet').value);
+  var hk = el('hintL');
+  if (km !== null && isFinite(km)) {
+    hk.textContent = nf0.format(km) + ' km' + (lad.sidsteKm != null ? ' · ' + nf0.format(km - lad.sidsteKm) + ' km siden sidst' : '');
+  } else if (lad.sidsteKm != null) {
+    hk.textContent = 'Sidst: ' + nf0.format(lad.sidsteKm) + ' km (' + dkDato(lad.sidsteKmDato) + ')';
+  } else hk.textContent = 'Ingen km-stand registreret endnu.';
+  var t = '';
+  if (kwh !== null && isFinite(kwh) && kwh > 0 && pris !== null && isFinite(pris)) t = 'Samlet ca. ' + nf2.format(kwh * pris) + ' kr';
+  else if (kwh !== null && isFinite(kwh) && kwh > 0 && sam !== null && isFinite(sam)) t = 'Svarer til ' + nf2.format(sam / kwh) + ' kr pr. kWh';
+  else if (ladeUi.typ === 'Hjem' && lad.hjemmepris != null) t = 'Tom pris = hjemmepris (' + nf2.format(lad.hjemmepris) + ' kr pr. kWh)';
+  el('hintLpris').textContent = t;
+}
+
+function renderLadeListe() {
+  var box = el('lListe'); clear(box); var d = state.lad;
+  if (!d || !d.liste || !d.liste.length) { box.appendChild(h('div', { class: 'hint', text: 'Ingen ladninger endnu.' })); return; }
+  var tb = h('table');
+  tb.appendChild(h('tr', null, [h('th', { text: 'Dato' }), h('th', { text: 'Sted' }), h('th', { text: 'kWh' }), h('th', { text: 'Kr' })]));
+  d.liste.forEach(function (r) {
+    tb.appendChild(h('tr', null, [
+      h('td', { text: dkDato(r.dato) }),
+      h('td', { text: (r.sted || '–') + (r.type ? ' · ' + r.type : '') }),
+      h('td', { text: nf1.format(r.kwh) }),
+      h('td', { text: r.samlet == null ? '–' : nf0.format(r.samlet) })
+    ]));
+  });
+  box.appendChild(tb);
+}
+
+function gemLadning() {
+  clearError();
+  var kwh = num(el('lkwh').value), pris = num(el('lpris').value), sam = num(el('lsamlet').value);
+  var km = num(el('lkm').value), foer = num(el('lfoer').value), efter = num(el('lefter').value);
+  if (kwh === null || !isFinite(kwh) || kwh <= 0) { showError('Skriv hvor mange kWh der blev ladet.'); return; }
+  var felter = [['pris pr. kWh', pris], ['samlet pris', sam], ['km-stand', km], ['batteri før', foer], ['batteri efter', efter]];
+  for (var i = 0; i < felter.length; i++) {
+    if (felter[i][1] !== null && !isFinite(felter[i][1])) { showError('Feltet "' + felter[i][0] + '" er ikke et tal.'); return; }
+  }
+  if ((foer !== null && (foer < 0 || foer > 100)) || (efter !== null && (efter < 0 || efter > 100))) { showError('Batteriprocent skal være mellem 0 og 100.'); return; }
+  var lad = state.lad || {};
+  if (km !== null && lad.sidsteKm != null && km < lad.sidsteKm && !confirm('Km-standen er lavere end sidst (' + nf0.format(lad.sidsteKm) + '). Gem alligevel?')) return;
+  var dato = el('ldato').value || localToday(), sted = el('lsted').value.trim();
+  var fra = (lad.sidsteDato && lad.sidsteDato <= dato) ? lad.sidsteDato : dato;
+  var btn = el('lgemBtn'), veh = state.veh, typ = ladeUi.typ;
+  btn.disabled = true; btn.textContent = 'Henter position og temperatur…';
+  // Position hentes kun ved ladning ude (hjemme kender vi adressen)
+  Promise.all([typ === 'Hjem' ? Promise.resolve(null) : position(), hentTemperatur(fra, dato)]).then(function (res) {
+    var pos = res[0], temp = res[1];
+    btn.textContent = 'Gemmer…';
+    call('saveLadning', [veh, dato, km, kwh, pris, sam, typ, sted, foer, efter, pos ? pos.lat : null, pos ? pos.lng : null, temp], function (r) {
+      btn.disabled = false; btn.textContent = 'Gem ladning';
+      var box = el('resL'); clear(box); box.classList.remove('hide');
+      box.appendChild(h('div', { class: 'num', text: 'Gemt ✓' }));
+      box.appendChild(h('div', { text: nf1.format(r.kwh) + ' kWh' + (r.pris != null ? ' · ' + nf2.format(r.pris) + ' kr pr. kWh' : '') + (r.samlet != null ? ' · ' + nf2.format(r.samlet) + ' kr' : '') }));
+      if (r.km != null) box.appendChild(h('div', { text: nf0.format(r.km) + ' km' + (r.kmKort != null ? ' · ' + nf0.format(r.kmKort) + ' km siden sidst' : '') }));
+      if (r.adresse) box.appendChild(h('div', { text: '📍 ' + r.adresse }));
+      else if (typ !== 'Hjem' && !pos) box.appendChild(h('div', { class: 'hint', text: 'Ingen GPS-position (ikke gemt).' }));
+      if (r.temperatur != null) box.appendChild(h('div', { text: '🌡 ' + nf1.format(r.temperatur) + ' °C (gns. siden sidst)' }));
+      (r.advarsler || []).forEach(function (w) { box.appendChild(h('div', { class: 'warn', text: w })); });
+      ['lkm', 'lkwh', 'lpris', 'lsamlet', 'lfoer', 'lefter', 'lsted'].forEach(function (id) { el(id).value = ''; });
+      loadLadning(); loadSteder();
+    }, function (e) { btn.disabled = false; btn.textContent = 'Gem ladning'; showError(e); });
+  });
+}
+
+// ---------- rækkevidde ----------
+function beregnRaekkevidde() {
+  clearError();
+  var full = fuldKm(el('kmR').value);
+  if (full === null) { showError('Skriv de tre sidste cifre af km-standen.'); return; }
+  var btn = el('raekBtn'); btn.disabled = true;
+  call('getRaekkevidde', [state.veh, full], function (r) {
+    btn.disabled = false;
+    var box = el('resR'); clear(box); box.classList.remove('hide');
+    if (!r.success) { box.textContent = r.message; return; }
+    box.appendChild(h('div', { text: 'Kørt siden sidste tankning' }));
+    box.appendChild(h('div', { class: 'num', text: nf0.format(r.kmKort) + ' km' }));
+    if (r.rest == null) { box.appendChild(h('div', { class: 'hint', text: r.note || '' })); return; }
+    box.appendChild(h('div', { text: 'Ca. tilbage' }));
+    box.appendChild(h('div', { class: 'num', text: nf0.format(r.rest) + ' km' }));
+    box.appendChild(h('div', { class: 'hint', text: 'Regnet ud fra ' + nf1.format(r.liter) + ' L (' + r.kilde + ') × ' + nf1.format(r.snit) + ' km/l (snit af seneste ' + r.antalTankninger + ' tankninger)' }));
+  }, function (e) { btn.disabled = false; showError(e); });
+}
+
+// ---------- statistik ----------
+var METRICS = [
+  { key: 'forbrug', navn: 'Forbrug km/l', enhed: 'km/l', dec: 1, farve: '#0b57d0', form: 'circle', side: 'L' },
+  { key: 'temperatur', navn: 'Temperatur °C', enhed: '°C', dec: 0, farve: '#c5221f', form: 'tri', side: 'R' },
+  { key: 'krKm', navn: 'Kr/km', enhed: 'kr/km', dec: 2, farve: '#0b7a2f', form: 'square', side: 'L' },
+  { key: 'literPris', navn: 'Literpris kr', enhed: 'kr/l', dec: 2, farve: '#b35900', form: 'diamond', side: 'R' }
+];
+var METRICS_EL = [
+  { key: 'kwh', navn: 'kWh pr. måned', enhed: 'kWh', dec: 0, farve: '#0b57d0', form: 'circle', side: 'L' },
+  { key: 'kr', navn: 'Kr pr. måned', enhed: 'kr', dec: 0, farve: '#0b7a2f', form: 'square', side: 'R' },
+  { key: 'prisKwh', navn: 'Kr pr. kWh', enhed: 'kr/kWh', dec: 2, farve: '#b35900', form: 'diamond', side: 'R' }
+];
+function metricsFor(s) { return s && s.type === 'el' ? METRICS_EL : METRICS; }
+var MAANEDER = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+function loadStatistik() {
+  var body = el('statBody'); clear(body); body.appendChild(h('div', { class: 'hint', text: 'Henter…' }));
+  var veh = state.veh;
+  call('getStatistik', [veh], function (s) {
+    if (veh !== state.veh) return;
+    state.stat = s; renderStatistik();
+  });
+}
+function renderStatistik() {
+  var s = state.stat, body = el('statBody'); clear(body);
+  if (!s || !s.success) { body.appendChild(h('div', { class: 'hint', text: (s && s.message) || 'Ingen data.' })); return; }
+  if (s.type === 'el') {
+    var kort = function (titel, o) {
+      return h('div', { class: 'card' }, [
+        h('div', { class: 't', text: titel }),
+        h('div', { class: 'v', text: nf0.format(o.kwh) + ' kWh' }),
+        h('div', { class: 't', text: nf0.format(o.kr) + ' kr · ' + o.antal + (o.antal === 1 ? ' ladning' : ' ladninger') })
+      ]);
+    };
+    body.appendChild(h('div', { class: 'cards' }, [kort('Denne måned', s.denneMd), kort('Forrige måned', s.forrigeMd)]));
+    body.appendChild(h('div', { class: 'cards', style: 'margin-top:10px' }, [kort('Seneste 12 måneder', s.seneste12), kort('I alt', s.iAlt)]));
+    body.appendChild(h('div', { class: 'cards', style: 'margin-top:10px' }, [
+      h('div', { class: 'card' }, [h('div', { class: 't', text: 'Snit pris' }), h('div', { class: 'v', text: s.snitPris == null ? '–' : nf2.format(s.snitPris) + ' kr' }), h('div', { class: 't', text: 'pr. kWh' })]),
+      h('div', { class: 'card' }, [h('div', { class: 't', text: 'Ladet hjemme' }), h('div', { class: 'v', text: s.hjemAndel == null ? '–' : s.hjemAndel + ' %' }), h('div', { class: 't', text: 'af alle kWh' })])
+    ]));
+  } else {
+    body.appendChild(h('div', { class: 'cards' }, [
+      h('div', { class: 'card' }, [h('div', { class: 't', text: 'Snit seneste 5 (km/l)' }), h('div', { class: 'v', text: s.snit5 == null ? '–' : nf1.format(s.snit5) })]),
+      h('div', { class: 'card' }, [h('div', { class: 't', text: 'Snit alle (km/l)' }), h('div', { class: 'v', text: s.snitAlt == null ? '–' : nf1.format(s.snitAlt) })])
+    ]));
+  }
+  var chk = h('div', { class: 'chk' });
+  metricsFor(s).forEach(function (m) {
+    if (m.key === 'temperatur' && !s.harTemperatur) return;
+    var cb = h('input', { type: 'checkbox' });
+    cb.checked = !!state.checked[m.key];
+    cb.addEventListener('change', function () { state.checked[m.key] = cb.checked; renderCharts(); });
+    var lab = h('label', { style: 'border-color:' + m.farve }, [cb, h('span', { class: 'sw', style: 'background:' + m.farve }), m.navn]);
+    chk.appendChild(lab);
+  });
+  body.appendChild(chk);
+  body.appendChild(h('div', { id: 'charts' }));
+  renderCharts();
+}
+
+function niceScale(lo, hi) {
+  if (!(hi > lo)) { lo -= 1; hi += 1; }
+  var rough = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log(rough) / Math.LN10)), res = rough / mag;
+  var step = (res <= 1 ? 1 : res <= 2 ? 2 : res <= 5 ? 5 : 10) * mag;
+  var nlo = Math.floor(lo / step + 1e-9) * step, nhi = Math.ceil(hi / step - 1e-9) * step;
+  var ticks = [];
+  for (var v = nlo; v <= nhi + step / 2; v += step) ticks.push(Math.round(v / step) * step);
+  return { lo: nlo, hi: nhi, ticks: ticks, step: step };
+}
+function fmtTick(v, m) {
+  var d = m.dec; if (m.key !== 'temperatur' && Math.abs(v - Math.round(v)) > 1e-9) d = Math.max(d, 1);
+  return v.toFixed(Math.abs(v - Math.round(v)) < 1e-9 && m.key !== 'krKm' && m.key !== 'literPris' && m.key !== 'prisKwh' ? 0 : d).replace('.', ',');
+}
+function sv(tag, attrs, parent) {
+  var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function marker(parent, form, x, y, farve) {
+  var a = { fill: farve, stroke: '#fff', 'stroke-width': 1.3 };
+  if (form === 'circle') { a.cx = x; a.cy = y; a.r = 4.2; return sv('circle', a, parent); }
+  if (form === 'square') { a.x = x - 4; a.y = y - 4; a.width = 8; a.height = 8; return sv('rect', a, parent); }
+  if (form === 'tri') { a.points = (x - 5) + ',' + (y + 4) + ' ' + (x + 5) + ',' + (y + 4) + ' ' + x + ',' + (y - 5.5); return sv('polygon', a, parent); }
+  a.points = x + ',' + (y - 5.5) + ' ' + (x + 5.5) + ',' + y + ' ' + x + ',' + (y + 5.5) + ' ' + (x - 5.5) + ',' + y; return sv('polygon', a, parent);
+}
+function fitHeight(c) {
+  var content = document.querySelector('.content'); if (content) content.scrollTop = 0;
+  var top = c.getBoundingClientRect().top, nav = document.querySelector('.bottom-nav').offsetHeight;
+  return Math.max(240, Math.floor(window.innerHeight - top - nav - 46));
+}
+
+function renderCharts() {
+  var s = state.stat, box = el('charts'); if (!box || !s) return; clear(box);
+  var ms = s.datoer.map(function (d) { return d ? new Date(d + 'T12:00:00Z').getTime() : null; });
+  var valid = ms.filter(function (v) { return v !== null; });
+  if (!valid.length) return;
+
+  var aktive = metricsFor(s).filter(function (m) {
+    if (!state.checked[m.key] || !s[m.key]) return false;
+    return s[m.key].some(function (v, i) { return v != null && ms[i] !== null; });
+  });
+  if (!aktive.length) { box.appendChild(h('div', { class: 'hint', text: 'Sæt kryds ved en eller flere kurver.' })); return; }
+
+  var H = fitHeight(box), PT = 22, PB = 26, ph = H - PT - PB;
+  var t0 = Math.min.apply(null, valid), t1 = Math.max.apply(null, valid);
+  var dage = Math.max(1, (t1 - t0) / 86400000), pxDag = 3, PADL = 18, PADR = 70;
+  var W = Math.round(PADL + dage * pxDag + PADR);
+  var X = function (t) { return PADL + (t - t0) / 86400000 * pxDag; };
+
+  // skala pr. kurve
+  aktive.forEach(function (m) {
+    var vals = s[m.key].filter(function (v) { return v != null; });
+    m.sc = niceScale(Math.min.apply(null, vals), Math.max.apply(null, vals));
+    m.Y = function (v) { return PT + ph * (1 - (v - m.sc.lo) / (m.sc.hi - m.sc.lo)); };
+  });
+
+  var AXW = 54;
+  function akse(m, venstre) {
+    var svg = sv('svg', { width: AXW, height: H, viewBox: '0 0 ' + AXW + ' ' + H });
+    var xl = venstre ? AXW - 1 : 1;
+    sv('line', { x1: xl, y1: PT, x2: xl, y2: PT + ph, stroke: m.farve, 'stroke-width': 2 }, svg);
+    var enh = sv('text', { x: venstre ? AXW - 4 : 4, y: 12, 'text-anchor': venstre ? 'end' : 'start', fill: m.farve, 'font-size': 11, 'font-weight': 700 }, svg);
+    enh.textContent = m.enhed;
+    m.sc.ticks.forEach(function (v) {
+      var y = m.Y(v);
+      sv('line', { x1: venstre ? AXW - 6 : 1, y1: y, x2: venstre ? AXW - 1 : 6, y2: y, stroke: m.farve, 'stroke-width': 2 }, svg);
+      var t = sv('text', { x: venstre ? AXW - 9 : 10, y: y + 4, 'text-anchor': venstre ? 'end' : 'start', fill: m.farve, 'font-size': 12, 'font-weight': 700 }, svg);
+      t.textContent = fmtTick(v, m);
+    });
+    return svg;
+  }
+
+  var wrap = h('div', { class: 'mc' });
+  var left = h('div', { class: 'ax' }), right = h('div', { class: 'ax' }), sc = h('div', { class: 'sc' });
+  left.style.display = 'flex'; right.style.display = 'flex';
+  var L = aktive.filter(function (m) { return m.side === 'L'; }).reverse();   // første kurve nærmest grafen
+  var R = aktive.filter(function (m) { return m.side === 'R'; });
+  L.forEach(function (m) { left.appendChild(akse(m, true)); });
+  R.forEach(function (m) { right.appendChild(akse(m, false)); });
+
+  var svg = sv('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+  // vandrette hjælpelinjer fra første aktive akse
+  aktive[0].sc.ticks.forEach(function (v) {
+    sv('line', { x1: 0, x2: W, y1: aktive[0].Y(v), y2: aktive[0].Y(v), stroke: '#dcdcdc', 'stroke-width': 1 }, svg);
+  });
+  // månedslinjer og tekst
+  var d0 = new Date(t0), y = d0.getUTCFullYear(), mo = d0.getUTCMonth();
+  for (var k = 0; k < 400; k++) {
+    var tm = Date.UTC(y, mo + k, 1, 12);
+    if (tm > t1) break;
+    if (tm < t0 - 15 * 86400000) continue;
+    var m0 = ((mo + k) % 12 + 12) % 12, jan = m0 === 0, x = X(tm);
+    if (x < 0) continue;
+    sv('line', { x1: x, x2: x, y1: PT, y2: PT + ph, stroke: jan ? '#8a8a8a' : '#e6e6e6', 'stroke-width': jan ? 1.5 : 1 }, svg);
+    var tx = sv('text', { x: x + 3, y: H - 8, fill: jan ? '#0a0a0a' : '#555', 'font-size': 12, 'font-weight': jan ? 700 : 400 }, svg);
+    tx.textContent = jan ? String(new Date(tm).getUTCFullYear()) : MAANEDER[m0];
+  }
+  sv('line', { x1: 0, x2: W, y1: PT + ph, y2: PT + ph, stroke: '#0a0a0a', 'stroke-width': 1.5 }, svg);
+
+  var ender = [];
+  aktive.forEach(function (m) {
+    var pts = [];
+    s[m.key].forEach(function (v, i) { if (v != null && ms[i] !== null) pts.push({ x: X(ms[i]), y: m.Y(v), v: v }); });
+    var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join('');
+    sv('path', { d: d, fill: 'none', stroke: m.farve, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    pts.forEach(function (p) { marker(svg, m.form, p.x, p.y, m.farve); });
+    var lp = pts[pts.length - 1];
+    ender.push({ x: lp.x + 9, y: lp.y + 4, txt: lp.v.toFixed(m.dec).replace('.', ','), farve: m.farve });
+  });
+  ender.sort(function (a, b) { return a.y - b.y; });
+  for (var q = 1; q < ender.length; q++) if (ender[q].y - ender[q - 1].y < 14) ender[q].y = ender[q - 1].y + 14;
+  ender.forEach(function (e) {
+    var t = sv('text', { x: e.x, y: e.y, fill: e.farve, 'font-size': 14, 'font-weight': 800 }, svg);
+    t.textContent = e.txt;
+  });
+
+  sc.appendChild(svg);
+  wrap.appendChild(left); wrap.appendChild(sc); wrap.appendChild(right);
+  box.appendChild(wrap);
+  sc.scrollLeft = sc.scrollWidth;
+  box.appendChild(h('div', { class: 'hint2', text: s.type === 'el'
+    ? 'Stryg vandret for at se tidligere måneder. Den indeværende måned er ikke afsluttet. Hver kurve har sin egen akse i samme farve.'
+    : 'Stryg vandret for at se tidligere tankninger. Hver kurve har sin egen akse i samme farve.' }));
+}
+window.addEventListener('resize', function () { if (state.tab === 'Statistik') renderCharts(); });
+
+// ---------- dæk ----------
+var daekUi = { nyt: false, skift: null };
+
+function loadDaek() {
+  var body = el('daekBody'); clear(body); body.appendChild(h('div', { class: 'hint', text: 'Henter…' }));
+  var veh = state.veh;
+  call('getDaekOversigt', [veh], function (d) { if (veh !== state.veh) return; state.daek = d; renderDaek(); });
+}
+
+function renderDaek() {
+  var d = state.daek, body = el('daekBody'); clear(body);
+  if (!d) return;
+  var flere = d.saesoner.length > 1;
+  if (flere) {
+    body.appendChild(h('div', { class: 'hint', text: 'Aktiv sæson' }));
+    var tg = h('div', { class: 'veh' });
+    d.saesoner.forEach(function (s) {
+      tg.appendChild(h('button', { text: s, class: s === d.aktivSaeson ? 'sel' : '', onclick: function () {
+        if (s === d.aktivSaeson) return;
+        daekUi.skift = s; renderDaek();
+      } }));
+    });
+    body.appendChild(tg);
+    if (d.aktivSiden) body.appendChild(h('div', { class: 'hint', text: 'Siden ' + (d.aktivSiden.dato ? dkDato(d.aktivSiden.dato) + ' · ' : '') + nf0.format(d.aktivSiden.km) + ' km' }));
+    if (daekUi.skift) body.appendChild(skiftBox(d));
+    var sk = h('div', { class: 'hint' });
+    sk.textContent = d.saesoner.map(function (s) { return s + ': ' + nf0.format(d.saesonKm[s] || 0) + ' km'; }).join(' · ');
+    body.appendChild(sk);
+  }
+
+  if (erEl() && !d.nuKm) {
+    body.appendChild(h('div', { class: 'hint warn', text: 'Ingen km-stand registreret for denne bil endnu. Skriv km-standen under Ladning, så kan dækkenes km regnes ud.' }));
+  }
+
+  // dæk-tabel
+  body.appendChild(h('h3', { text: 'Dæk' }));
+  if (!d.daek.length) body.appendChild(h('div', { class: 'hint', text: 'Ingen dæk registreret endnu.' }));
+  else {
+    var tb = h('table');
+    tb.appendChild(h('tr', null, [h('th', { text: 'Hjul' }), h('th', { text: 'Dæk' }), h('th', { text: 'Km' }), h('th', { text: 'Status' })]));
+    var order = d.positioner.map(function (p) { return p.kode; });
+    d.daek.slice().sort(function (a, b) {
+      var ma = a.fjernetKm == null ? 0 : 1, mb = b.fjernetKm == null ? 0 : 1;
+      return ma - mb || order.indexOf(a.position) - order.indexOf(b.position) || b.monteretKm - a.monteretKm;
+    }).forEach(function (x) {
+      var nm = (x.navn || '–') + (flere ? ' (' + x.saeson + ')' : '');
+      var st = x.fjernetKm == null ? (flere && x.saeson !== d.aktivSaeson ? 'på lager' : 'monteret') : 'afmonteret ' + dkDato(x.fjernetDato);
+      tb.appendChild(h('tr', null, [h('td', { text: x.position }), h('td', { text: nm }), h('td', { text: nf0.format(x.km) }), h('td', { text: st })]));
+    });
+    body.appendChild(tb);
+  }
+
+  // nyt dæk
+  if (!daekUi.nyt) {
+    body.appendChild(h('button', { class: 'pri', text: 'Nyt dæk', onclick: function () { daekUi.nyt = true; renderDaek(); } }));
+  } else body.appendChild(nytBox(d));
+}
+
+function skiftBox(d) {
+  var dato = h('input', { type: 'date', value: localToday() });
+  var km = h('input', { type: 'text', inputmode: 'numeric', value: String(d.nuKm) });
+  var ny = daekUi.skift;
+  return h('div', { class: 'box' }, [
+    h('div', { text: 'Skift til ' + ny, class: 'num' }),
+    h('label', { text: 'Dato' }), dato,
+    h('label', { text: 'Km-stand' }), km,
+    h('button', { class: 'pri', text: 'Bekræft skift', onclick: function (ev) {
+      ev.target.disabled = true;
+      call('skiftSaeson', [state.veh, dato.value || localToday(), parseInt(km.value, 10), ny], function (r) {
+        daekUi.skift = null; state.daek = r; renderDaek();
+      }, function (e) { ev.target.disabled = false; showError(e); });
+    } }),
+    h('button', { text: 'Annuller', style: 'width:100%;margin-top:8px', onclick: function () { daekUi.skift = null; renderDaek(); } })
+  ]);
+}
+
+function nytBox(d) {
+  var valg = { saeson: d.aktivSaeson || d.saesoner[0], pos: {} };
+  var box = h('div', { class: 'box' });
+  var navn = h('input', { type: 'text', placeholder: 'fx Barum Polaris 5' });
+  var dato = h('input', { type: 'date', value: localToday() });
+  var km = h('input', { type: 'text', inputmode: 'numeric', value: String(d.nuKm) });
+  function draw() {
+    clear(box);
+    box.appendChild(h('div', { class: 'num', text: 'Nyt dæk' }));
+    if (d.saesoner.length > 1) {
+      box.appendChild(h('label', { text: 'Sæson' }));
+      var r = h('div', { class: 'veh' });
+      d.saesoner.forEach(function (s) { r.appendChild(h('button', { text: s, class: s === valg.saeson ? 'sel' : '', onclick: function () { valg.saeson = s; draw(); } })); });
+      box.appendChild(r);
+    }
+    box.appendChild(h('label', { text: 'Hjul' }));
+    var chips = h('div', { class: 'chips' });
+    d.positioner.forEach(function (p) {
+      chips.appendChild(h('button', { text: p.navn, class: valg.pos[p.kode] ? 'sel' : '', onclick: function () { valg.pos[p.kode] = !valg.pos[p.kode]; draw(); } }));
+    });
+    box.appendChild(chips);
+    box.appendChild(h('label', { text: 'Dæktype (valgfri)' })); box.appendChild(navn);
+    box.appendChild(h('label', { text: 'Dato' })); box.appendChild(dato);
+    box.appendChild(h('label', { text: 'Km-stand' })); box.appendChild(km);
+    box.appendChild(h('button', { class: 'pri', text: 'Gem nye dæk', onclick: function (ev) {
+      var pos = d.positioner.map(function (p) { return p.kode; }).filter(function (k) { return valg.pos[k]; });
+      if (!pos.length) { showError('Vælg mindst ét hjul.'); return; }
+      clearError(); ev.target.disabled = true;
+      call('nytDaek', [state.veh, valg.saeson, pos, navn.value, dato.value || localToday(), parseInt(km.value, 10)], function (r) {
+        daekUi.nyt = false; state.daek = r; renderDaek();
+      }, function (e) { ev.target.disabled = false; showError(e); });
+    } }));
+    box.appendChild(h('button', { text: 'Annuller', style: 'width:100%;margin-top:8px', onclick: function () { daekUi.nyt = false; renderDaek(); } }));
+  }
+  draw();
+  return box;
+}
+
+// Service worker: gør appen installerbar og lader skallen åbne uden net
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+if (getCfg()) init(); else showSetup(null, init);
+</script>
+</body>
+</html>
